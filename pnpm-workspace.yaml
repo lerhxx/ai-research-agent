@@ -1,0 +1,6 @@
+allowBuilds:
+  '@parcel/watcher': true
+  nx: false
+  unrs-resolver: true
+  "@nestjs/core": false
+  esbuild: set this to true or false
