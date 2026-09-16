@@ -3,4 +3,4 @@ allowBuilds:
   nx: false
   unrs-resolver: true
   "@nestjs/core": false
-  esbuild: set this to true or false
+  esbuild: true

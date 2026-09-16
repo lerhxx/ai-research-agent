@@ -81,7 +81,7 @@ async function streamMain() {
 
       // 使用 textStream 迭代每个文本块
       for await (const chunk of stream.textStream) {
-        process.stdout.write(chunk); // 直接写入
+        process.stdout.write(chunk); // 直接写入，不换行
       }
 
       // 流结束后换行，使下一次输入提示新起一行
