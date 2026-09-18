@@ -14,7 +14,7 @@ export interface Cost {
   input: number;
   output: number;
   total: number;
-  currency: 'USD';
+  currency: string;
 }
 
 export interface TimeUseStatistics {
@@ -106,7 +106,7 @@ export interface ModelPricing {
   inputPerMillionTokens: number;
   outputPerMillionTokens: number;
 
-  currency: 'USD';
+  currency: string;
 }
 
 export interface ToolUsageSummary {

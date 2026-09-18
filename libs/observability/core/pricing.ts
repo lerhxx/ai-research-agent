@@ -5,9 +5,9 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     provider: 'deepseek',
     model: 'deepseek-chat',
 
-    inputPerMillionTokens: 100,
-    outputPerMillionTokens: 10,
+    inputPerMillionTokens: 1,
+    outputPerMillionTokens: 4,
 
-    currency: 'USD',
+    currency: 'CND',
   },
 }

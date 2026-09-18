@@ -12,7 +12,7 @@ export function createRunContext(
   metadata?: Record<string, unknown>
 ): RunContext {
   return {
-    runId: `run_${randomUUID}`,
+    runId: `run_${randomUUID()}`,
     agentName,
     startedAt: Date.now(),
     metadata,

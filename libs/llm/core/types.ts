@@ -42,29 +42,6 @@ export interface Message {
 /** JSON Schema 类型 */
 export type JSONSchema = Record<string, unknown>;
 
-/**
- * LLM Tool
- *
- * 注意：
- * 这里描述的是“给模型看的 Tool 定义”，
- * 不是实际执行 Tool。
- *
- * 真正的 Tool Registry 后面再实现。
- */
-export interface LLMTool {
-  type: 'function';
-
-  function: {
-    name: string;
-
-    description?: string;
-
-    parameters?: JSONSchema;
-
-    strict?: boolean;
-  };
-}
-
 /** Tool Choice */
 export type ToolChoice =
   | 'none'
@@ -92,8 +69,8 @@ export interface LLMOptions {
   /** 是否流式 */
   stream?: boolean;
 
-  /** Tools（既支持 OpenAI 风格的 LLMTool[]，也支持 AI SDK v7 的 ToolSet） */
-  tools?: LLMTool[] | ToolSet;
+  /** Tools */
+  tools?: ToolSet;
 
   /** Tool Choice */
   toolChoice?: ToolChoice;
@@ -110,6 +87,8 @@ export interface LLMOptions {
   responseFormat?: {
     type: 'text' | 'json_object';
   };
+
+  stopWhen?: unknown;
 }
 
 /** Token 使用情况 */

@@ -160,22 +160,16 @@ export class Telemetry {
 
   trackToolCall(options: {
     context: RunContext;
-
     toolName: string;
     toolCallId?: string;
-
     startedAt: number;
     endedAt?: number;
-
     input?: unknown;
-
     result?: {
       itemCount?: number;
       bytes?: number;
     };
-
     status?: 'success' | 'error';
-
     error?: unknown;
   }): string {
     const callId = `tool_${randomUUID()}`;
@@ -205,7 +199,49 @@ export class Telemetry {
     this.emit(event);
 
     return callId;
+  }
 
+  async trackTool<T>(options: {
+    context: RunContext;
+    toolName: string;
+    toolCallId?: string;
+    input?: unknown;
+    execute: () => Promise<T>;
+    getResultMeta?: (
+      result: T,
+    ) => {
+      itemCount?: number;
+      bytes?: number;
+    };
+  }): Promise<T> {
+    const startedAt = Date.now();
+
+    try {
+      const result = await options.execute();
+      this.trackToolCall({
+        context: options.context,
+        toolName: options.toolName,
+        toolCallId: options.toolCallId,
+        startedAt,
+        input: options.input,
+        result: options.getResultMeta?.(result),
+        status: 'success',
+      });
+
+      return result;
+    } catch(error) {
+      this.trackToolCall({
+        context: options.context,
+        toolName: options.toolName,
+        toolCallId: options.toolCallId,
+        startedAt,
+        input: options.input,
+        status: 'error',
+        error
+      });
+
+      throw error;
+    }
   }
 
   trackError(options: {

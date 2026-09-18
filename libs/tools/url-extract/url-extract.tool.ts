@@ -1,7 +1,9 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { ExtractService } from './core/extract-service';
+import { ExtractOptions } from './core/types';
 import { telemetry, RunContext } from '../../observability/index';
+import type { Tool } from '../core/types';
 
 const Description = `
 Extract the main content from one or more web pages.
@@ -38,36 +40,48 @@ export const createURLExtractTool = (
       extractDepth,
       format,
       includeImages,
-    }) => {
-      const startedAt = Date.now();
-      try {
-        const result = await extractService.extract({
-          urls,
-          extractDepth,
-          format,
-          includeImages,
-        });
-  
-        telemetry.trackToolCall({
-          context: runContext,
-          toolName: 'url_extract',
-          startedAt,
-          input: { urls },
-          result: { bytes: result.results.length, },
-          status: 'success',
-        });
-
-        return result;
-      } catch(err) {
-        telemetry.trackToolCall({
-          context: runContext,
-          toolName: 'url_extract',
-          startedAt,
-          input: { urls },
-          status: 'error',
-        });
-
-        throw err;
-      }
-    }
+    }) => telemetry.trackTool({
+      context: runContext,
+      toolName: 'url_extract',
+      input: { urls },
+      execute: async () => await extractService.extract({
+        urls,
+        extractDepth,
+        format,
+        includeImages,
+      }),
+      getResultMeta: (result) => ({ itemCount: result.results.length }),
+    })
   });
+
+export class URLExtractTool implements Tool<typeof InputSchema, Awaited<ReturnType<ExtractService['extract']>>> {
+  readonly name = 'url_extract';
+  readonly description = Description;
+  readonly inputSchema = InputSchema;
+  
+  constructor(private readonly extractService: ExtractService) {}
+
+  async execute(
+    options: ExtractOptions,
+    context: { run: RunContext },
+  ) {
+    const {
+      urls,
+      extractDepth,
+      format,
+      includeImages,
+    } = options;
+    return telemetry.trackTool({
+      context: context.run,
+      toolName: this.name,
+      input: { urls },
+      execute: () => this.extractService.extract({
+        urls,
+        extractDepth,
+        format,
+        includeImages,
+      }),
+      getResultMeta: (result) => ({ itemCount: result.results.length }),
+    });
+  }
+}

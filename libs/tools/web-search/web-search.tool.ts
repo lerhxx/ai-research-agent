@@ -1,7 +1,9 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { SearchService } from './core/search-service';
+import { SearchOptions } from './core/types';
 import { telemetry, RunContext } from '../../observability/index';
+import type { Tool } from '../core/types';
 
 const Description = `
 Search the web for reliable and up-to-date information.
@@ -63,39 +65,57 @@ export const createWebSearchTool = (
       timeRange,
       includeDomains,
       excludeDomains,
-    }) => {
-      const startedAt = Date.now();
-      try {
-        const result = await searchService.search({
-          query,
-          maxResults,
-          searchDepth,
-          topic,
-          timeRange,
-          includeDomains,
-          excludeDomains,
-        });
-  
-        telemetry.trackToolCall({
-          context: runContext,
-          toolName: 'web_search',
-          startedAt,
-          input: { query },
-          result: { itemCount: result.results.length },
-          status: 'success',
-        });
-  
-        return result;
-      } catch(err){
-        telemetry.trackToolCall({
-          context: runContext,
-          toolName: 'web_search',
-          startedAt,
-          input: { query },
-          status: 'error',
-        });
-
-        throw err;
-      }
-    }
+    }) => telemetry.trackTool({
+      context: runContext,
+      toolName: 'web_search',
+      input: { query },
+      execute: async () => await searchService.search({
+        query,
+        maxResults,
+        searchDepth,
+        topic,
+        timeRange,
+        includeDomains,
+        excludeDomains,
+      }),
+      getResultMeta: (result) => ({ itemCount: result.results.length }),
+    })
   })
+
+export class WebSearchTool implements Tool<typeof InputSchema, Awaited<ReturnType<SearchService['search']>>> {
+  readonly name = 'web_search';
+  readonly description = Description;
+  readonly inputSchema = InputSchema;
+  
+  constructor(private readonly searchService: SearchService) {}
+
+  async execute(
+    options: SearchOptions,
+    context: { run: RunContext },
+  ) {
+    const {
+      query,
+      maxResults,
+      searchDepth,
+      topic,
+      timeRange,
+      includeDomains,
+      excludeDomains,
+    } = options;
+    return telemetry.trackTool({
+      context: context.run,
+      toolName: this.name,
+      input: { query },
+      execute: () => this.searchService.search({
+        query,
+        maxResults,
+        searchDepth,
+        topic,
+        timeRange,
+        includeDomains,
+        excludeDomains,
+      }),
+      getResultMeta: (result) => ({ itemCount: result.results.length }),
+    });
+  }
+}
