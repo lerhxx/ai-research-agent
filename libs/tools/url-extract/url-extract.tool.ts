@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { ExtractService } from './core/extract-service';
+import { telemetry, RunContext } from '../../observability/index';
 
 const Description = `
 Extract the main content from one or more web pages.
@@ -28,18 +29,45 @@ const InputSchema = z.object({
 
 export const createURLExtractTool = (
   extractService: ExtractService,
+  runContext: RunContext,
 ) => tool({
     description: Description,
     inputSchema: InputSchema,
-    execute: async({
+    execute: async ({
       urls,
       extractDepth,
       format,
       includeImages,
-    }) => extractService.extract({
-        urls,
-        extractDepth,
-        format,
-        includeImages,
-      })
+    }) => {
+      const startedAt = Date.now();
+      try {
+        const result = await extractService.extract({
+          urls,
+          extractDepth,
+          format,
+          includeImages,
+        });
+  
+        telemetry.trackToolCall({
+          context: runContext,
+          toolName: 'url_extract',
+          startedAt,
+          input: { urls },
+          result: { bytes: result.results.length, },
+          status: 'success',
+        });
+
+        return result;
+      } catch(err) {
+        telemetry.trackToolCall({
+          context: runContext,
+          toolName: 'url_extract',
+          startedAt,
+          input: { urls },
+          status: 'error',
+        });
+
+        throw err;
+      }
+    }
   });

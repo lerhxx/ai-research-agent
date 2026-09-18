@@ -1,3 +1,5 @@
+import type { ToolSet } from 'ai';
+
 /** LLM 消息角色 */
 export type MessageRole =
   | 'system'
@@ -77,8 +79,9 @@ export type ToolChoice =
 
 /** LLM 请求参数 */
 export interface LLMOptions {
+  prompt?: string;
   /** 最大输出 token */
-  maxTokens?: number;
+  maxOutputTokens?: number;
 
   /** 温度 */
   temperature?: number;
@@ -89,8 +92,8 @@ export interface LLMOptions {
   /** 是否流式 */
   stream?: boolean;
 
-  /** Tools */
-  tools?: LLMTool[];
+  /** Tools（既支持 OpenAI 风格的 LLMTool[]，也支持 AI SDK v7 的 ToolSet） */
+  tools?: LLMTool[] | ToolSet;
 
   /** Tool Choice */
   toolChoice?: ToolChoice;

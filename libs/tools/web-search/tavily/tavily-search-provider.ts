@@ -9,6 +9,7 @@ import type { SearchProvider } from '../core/search-provider';
 
 export class TavilySearchProvider implements SearchProvider {
   private readonly client;
+  readonly name = 'Tavily';
 
   constructor(apiKey: string) {
     this.client = tavily({ apiKey, })

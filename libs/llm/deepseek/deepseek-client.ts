@@ -1,17 +1,23 @@
 import {
   generateText,
+  jsonSchema,
   streamText,
+  tool,
+  type JSONSchema7,
   type ModelMessage,
+  type ToolSet,
 } from 'ai';
 import { deepseek } from '@ai-sdk/deepseek';
 
 import type { LLMClient } from '../core/llm-client';
-import { 
+import {
   LLMOptions,
   LLMResponse,
   LLMStreamEvent,
+  LLMTool,
   Message,
   ToolCall,
+  ToolChoice,
 } from '../core/types';
 
 export interface DeepSeekClientOptions {
@@ -20,7 +26,7 @@ export interface DeepSeekClientOptions {
 }
 
 export class DeepSeekClient implements LLMClient {
-  private readonly model: string;
+  readonly model: string;
 
   constructor(options: DeepSeekClientOptions = {}) {
     this.model = options.model ?? process.env.DEEPSEEK_MODEL ?? 'deepseek-chat';
@@ -31,24 +37,28 @@ export class DeepSeekClient implements LLMClient {
   }
 
   getConfig(messages: Message[], options: LLMOptions = {}) {
-    return {
+    // tools / toolChoice 在项目内部使用 OpenAI 形状（LLMTool[] / {type:'function',function:{name}}），
+    // 而 AI SDK v7 期望 ToolSet（Record<name, Tool>）与 {type:'tool',toolName}，需要先转换再传。
+    const { tools, toolChoice, ...rest } = options;
+    const config = {
       model: deepseek(this.model),
-      messages: this.toModelMessage(messages),
-      temperature: options.temperature,
-      topP: options.topP,
-      maxOutputTokens: options.maxTokens,
+      // messages: this.toModelMessage(messages),
+      tools: this.toToolSet(tools),
+      toolChoice: this.toToolChoice(toolChoice),
+      ...rest,
+    } as any;
+
+    if (messages.length) {
+      config.message = this.toModelMessage(messages);
+      delete config.prompt
     }
+console.log('config', config)
+    return config;
   }
 
   /** 非流式调用 */
   async chat( messages: Message[], options: LLMOptions = {} ): Promise<LLMResponse> {
-    const result = await generateText({
-      model: deepseek(this.model),
-      messages: this.toModelMessage(messages),
-      temperature: options.temperature,
-      topP: options.topP,
-      maxOutputTokens: options.maxTokens,
-    });
+    const result = await generateText(this.getConfig(messages, options));
 
     const toolCalls: ToolCall[] = result.toolCalls.map((toolCall) => ({
       id: toolCall.toolCallId,
@@ -69,19 +79,13 @@ export class DeepSeekClient implements LLMClient {
         promptTokens: result.usage.inputTokens ?? 0,
         completionTokens: result.usage.outputTokens ?? 0,
         totalTokens: (result.usage.inputTokens ?? 0) + (result.usage.outputTokens ?? 0)
-      } : undefined
+      } : undefined,
     }
   }
 
   /** 流式调用 */
   async *stream( messages: Message[], options: LLMOptions = {} ): AsyncGenerator<LLMStreamEvent> {
-    const result = streamText({
-      model: deepseek(this.model),
-      messages: this.toModelMessage(messages),
-      temperature: options.temperature,
-      topP: options.topP,
-      maxOutputTokens: options.maxTokens,
-    })
+    const result = streamText(this.getConfig(messages, options))
 
     for await (const part of result.stream) {
       switch (part.type) {
@@ -120,6 +124,38 @@ export class DeepSeekClient implements LLMClient {
           break;
       }
     }
+  }
+
+  /** 将项目内部 tools 转换成 AI SDK v7 的 ToolSet（Record<name, Tool>）。
+   *  既支持 OpenAI 风格的 LLMTool[]，也支持已经是 ToolSet 形状的对象（直接透传）。 */
+  private toToolSet(tools?: LLMTool[] | ToolSet): ToolSet | undefined {
+    if (!tools) return undefined;
+    // 已经是 ToolSet 形状（Record<name, Tool>）时直接透传
+    if (!Array.isArray(tools)) return tools;
+    if (tools.length === 0) return undefined;
+    const result: ToolSet = {};
+    for (const t of tools) {
+      result[t.function.name] = tool({
+        description: t.function.description,
+        inputSchema: jsonSchema(
+          (t.function.parameters ?? { type: 'object' }) as JSONSchema7,
+        ),
+        strict: t.function.strict,
+      });
+    }
+    return result;
+  }
+
+  /** 将项目内部 ToolChoice 转换成 AI SDK v7 的 ToolChoice */
+  private toToolChoice(
+    choice?: ToolChoice,
+  ): 'auto' | 'none' | 'required' | { type: 'tool'; toolName: string } | undefined {
+    if (!choice) return undefined;
+    if (typeof choice === 'string') return choice;
+    return {
+      type: 'tool',
+      toolName: choice.function.name,
+    };
   }
 
   /** 将项目内部 Message 转换成 AI SDK ModelMessage */

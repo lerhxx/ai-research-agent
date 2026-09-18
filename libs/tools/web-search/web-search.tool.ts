@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { SearchService } from './core/search-service';
+import { telemetry, RunContext } from '../../observability/index';
 
 const Description = `
 Search the web for reliable and up-to-date information.
@@ -50,10 +51,11 @@ const InputSchema = z.object({
 
 export const createWebSearchTool = (
   searchService: SearchService,
+  runContext: RunContext,
 ) => tool({
     description: Description,
     inputSchema: InputSchema,
-    execute: async({
+    execute: async ({
       query,
       maxResults,
       searchDepth,
@@ -61,13 +63,39 @@ export const createWebSearchTool = (
       timeRange,
       includeDomains,
       excludeDomains,
-    }) => searchService.search({
-        query,
-        maxResults,
-        searchDepth,
-        topic,
-        timeRange,
-        includeDomains,
-        excludeDomains,
-      })
+    }) => {
+      const startedAt = Date.now();
+      try {
+        const result = await searchService.search({
+          query,
+          maxResults,
+          searchDepth,
+          topic,
+          timeRange,
+          includeDomains,
+          excludeDomains,
+        });
+  
+        telemetry.trackToolCall({
+          context: runContext,
+          toolName: 'web_search',
+          startedAt,
+          input: { query },
+          result: { itemCount: result.results.length },
+          status: 'success',
+        });
+  
+        return result;
+      } catch(err){
+        telemetry.trackToolCall({
+          context: runContext,
+          toolName: 'web_search',
+          startedAt,
+          input: { query },
+          status: 'error',
+        });
+
+        throw err;
+      }
+    }
   })

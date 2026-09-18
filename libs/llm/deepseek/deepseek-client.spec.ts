@@ -13,7 +13,7 @@ describe('DeepSeekClient', () => {
         },
       ],
       // 集成测试只需验证链路连通，限制输出长度以保证耗时稳定（网络延迟较高时短回复仍需数秒）
-      { maxTokens: 100 },
+      { maxOutputTokens: 100 },
     );
 
     expect(result.content).toBeTruthy();

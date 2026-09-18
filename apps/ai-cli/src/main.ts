@@ -70,8 +70,8 @@ async function streamMain() {
     }
 
     try {
-      // 发起流式请求
-      const stream = await streamText({
+      // 发起流式请求（AI SDK v7 的 streamText 同步返回 StreamTextResult，无需 await）
+      const stream = streamText({
         model: deepseek('deepseek-chat'),
         prompt: userInput,
       });
